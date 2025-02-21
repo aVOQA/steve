@@ -1,0 +1,78 @@
+name: Continuous integration
+on:
+  push:
+permissions:
+  contents: write # to be able to create release
+concurrency:
+  group: "${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    #      - self-hosted
+    #      - voqa-quality
+    #      - tetraev-quality
+    container:
+      image: maven:3.6.3-openjdk-17
+    #   ----- from gitlab ci : if merge request to develop and main
+    #    rules:
+    #      - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^KUBA-.*$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop"
+    #      - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^rc-.*$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+    #      - if: ($CI_COMMIT_REF_NAME == "develop" || $CI_COMMIT_REF_NAME == "main") && $CI_PIPELINE_SOURCE == "push"
+    #   ---- translate by actions importer
+    #    if: ${{ github.event_name }} == "merge_request_event" && ${{ github.event.pull_request.head.ref }} =~ /^KUBA-.*$/ && ${{ github.event.pull_request.base.ref }} == "develop" || ${{ github.event_name }} == "merge_request_event" && ${{ github.event.pull_request.head.ref }} =~ /^rc-.*$/ && ${{ github.event.pull_request.base.ref }} == "main" || (${{ github.ref }} == "develop" || ${{ github.ref }} == "main") && ${{ github.event_name }} == "push"
+    timeout-minutes: 60
+    services:
+      mysql:
+        image: mysql:5.7.42
+        env:
+          MYSQL_ROOT_PASSWORD: ChangeMe!
+          MYSQL_DATABASE: stevedb
+          MYSQL_USER: steve
+          MYSQL_PASSWORD: ChangeMe!
+        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=4s --health-retries=5
+    env:
+      SERVICE: ocpp
+      ECR: "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+      NODE_SELECTOR: OCPP
+      MYSQL_ROOT_PASSWORD: ChangeMe!
+      MYSQL_DATABASE: stevedb
+      MYSQL_USER: steve
+      MYSQL_PASSWORD: ChangeMe!
+      CURRENT_CONFIG_PATH: "./src/main/resources/config/kubernetes/main.properties"
+      TESTED_CONFIG_PATH: "./src/main/resources/config/prod/main.properties"
+    steps:
+      - uses: actions/checkout@v4.1.0
+      - run: mkdir ./src/main/resources/config/prod
+      - run: cp -a $CURRENT_CONFIG_PATH $TESTED_CONFIG_PATH
+      - run: sed -i "s|\$DB_HOST|mysql|g" $TESTED_CONFIG_PATH
+      - run: sed -i "s|\$DB_PORT|3306|g" $TESTED_CONFIG_PATH
+      - run: sed -i "s|\$DB_USERNAME|$MYSQL_USER|g" $TESTED_CONFIG_PATH
+      - run: sed -i "s|\$DB_PASSWORD|$MYSQL_PASSWORD|g" $TESTED_CONFIG_PATH
+      - run: sed -i "s|\$DB_DATABASE|$MYSQL_DATABASE|g" $TESTED_CONFIG_PATH
+      - run: mvn clean test -Pcoverage
+      - uses: actions/upload-artifact@v4.0.0
+        if: success()
+        with:
+          name: "${{ github.job }}"
+          retention-days: 1
+          path: target/
+  create-version-tag:
+    needs:
+      - unit-tests
+    runs-on: ubuntu-latest
+    #      - self-hosted
+    #      - voqa-quality
+    #      - tetraev-quality
+    container:
+      image: alpine:3.18
+    #    if: ${{ github.ref }} == "develop" || ${{ github.ref }} == "main" || ${{ github.ref }} == "import_to_github" # todo remove
+    timeout-minutes: 60
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4.1.0
+      - run: apk add curl jq
+      - run: chmod 755 .github/create_tag.sh
+      - run: .github/./create_tag.sh
+

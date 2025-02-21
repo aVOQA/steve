@@ -1,0 +1,34 @@
+name: Infrastructure
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        type: environment
+        required: true
+concurrency:
+  group: "${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+  infra-dev:
+    runs-on:
+      - ubuntu-latest
+    container:
+      image: node:16.17.1-alpine3.15
+    #    if: # Unable to map conditional expression to GitHub Actions equivalent
+    #         ${{ github.ref }} =~ /^KUBA-[0-9]+.*$/ && (${{ github.event_name }} == "push" || ${{ github.event_name }} == "web") || ${{ github.ref }} =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/ && ${{ github.event_name }} == "push" || ${{ github.ref }} =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/ && ${{ github.event_name }} == "web" && $PERF_TESTING == null
+    environment: ${{ github.event.inputs.environment }}
+    timeout-minutes: 60
+    env:
+      ENV_GROUP: ${{ github.event.inputs.environment }}
+      ENV_SDLC: ${{ github.event.inputs.environment }}
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    steps:
+      - uses: actions/checkout@v4.1.0
+      - run: apk --no-cache add curl
+      - run: npm install
+      - run: node node_modules/serverless/bin/serverless.js deploy -c serverless.yml --stage="$ENV_GROUP"
+      - run: if [ "$ENV_SDLC" = "target" ]; then curl -X POST -d "{\"project\":\"${{ github.repository }}\",\"developer\":\"${{ github.actor }}\"}" $WEBHOOK_DX; fi

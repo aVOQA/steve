@@ -1,0 +1,141 @@
+name: Deploy
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy'
+        type: environment
+        required: true
+concurrency:
+  group: "${{ github.ref }}"
+  cancel-in-progress: true
+jobs:
+#  prebuild-dev:
+#    runs-on: ubuntu-latest
+#    container:
+#      image: maven:3.6.3-openjdk-17
+#    #   ----- from gitlab ci : if merge request to develop and main
+#    #    rules:
+#    #      - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^KUBA-.*$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "develop"
+#    #      - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^rc-.*$/ && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "main"
+#    #      - if: ($CI_COMMIT_REF_NAME == "develop" || $CI_COMMIT_REF_NAME == "main") && $CI_PIPELINE_SOURCE == "push"
+#    #   ---- translate by actions importer
+#    #    if: github.ref_type == 'tag'
+#    timeout-minutes: 60
+#    services:
+#      mysql:
+#        image: mysql:5.7.42
+#        env:
+#          MYSQL_ROOT_PASSWORD: ChangeMe!
+#          MYSQL_DATABASE: stevedb
+#          MYSQL_USER: steve
+#          MYSQL_PASSWORD: ChangeMe!
+#        options: --health-cmd="mysqladmin ping" --health-interval=5s --health-timeout=4s --health-retries=5
+#    env:
+#      MYSQL_ROOT_PASSWORD: ChangeMe!
+#      MYSQL_DATABASE: stevedb
+#      MYSQL_USER: steve
+#      MYSQL_PASSWORD: ChangeMe!
+#      KUBERNETES_CONFIG_PATH: "./src/main/resources/config/kubernetes/main.properties"
+#    steps:
+#      - uses: actions/checkout@v4.1.0
+#      - run: sed -i "s|\$DB_HOST|mysql|g" $KUBERNETES_CONFIG_PATH
+#      - run: sed -i "s|\$DB_PORT|3306|g" $KUBERNETES_CONFIG_PATH
+#      - run: sed -i "s|\$DB_USERNAME|$MYSQL_USER|g" $KUBERNETES_CONFIG_PATH
+#      - run: sed -i "s|\$DB_PASSWORD|$MYSQL_PASSWORD|g" $KUBERNETES_CONFIG_PATH
+#      - run: sed -i "s|\$DB_DATABASE|$MYSQL_DATABASE|g" $KUBERNETES_CONFIG_PATH
+#      - run: mvn clean package -Pkubernetes -Djdk.tls.client.protocols="TLSv1,TLSv1.1,TLSv1.2"
+#      - uses: actions/upload-artifact@v4.0.0
+#        if: success()
+#        with:
+#          name: "${{ github.job }}"
+#          retention-days: 1
+#          path: target
+  build-dev:
+    runs-on:
+      - self-hosted
+      - voqa-bo-ubuntu-22-04
+    #      - tetra-k8s-ocpp
+#    needs:
+#      - prebuild-dev
+    #    container:
+    #      image: docker:stable
+    #    if: github.ref_type == 'tag'
+    environment: dev
+    timeout-minutes: 60
+    env:
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com
+      NODE_SELECTOR: OCPP
+      ECR_IMAGE: steve-dev
+      EKS_CLUSTER_NAME: tetra-dev-test
+      ENV_SDLC: dev
+      DB_HOST: ${{ secrets.DB_HOST }}
+      DB_PORT: ${{ secrets.DB_PORT }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      DB_DATABASE:  ${{ secrets.DB_DATABASE }}
+    steps:
+      - uses: actions/checkout@v4.1.0
+#      - uses: actions/download-artifact@v4.1.0
+#        with:
+#          name: prebuild-dev
+#          path: ./target
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          buildkitd-flags: --debug
+      - run: sudo apt install curl jq python3 python3-pip -y
+      - run: pip install awscli
+      - run: $HOME/.local/bin/aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$ECR"
+      - run: docker build --build-arg DB_HOST="$DB_HOST" --build-arg DB_PORT="$DB_PORT" --build-arg DB_USERNAME="$DB_USERNAME" --build-arg DB_PASSWORD="$DB_PASSWORD" --build-arg DB_DATABASE="$DB_DATABASE" -t "${ECR}/${ECR_IMAGE}:${{ github.sha }}" .
+      - run: docker tag "${ECR}/${ECR_IMAGE}:${{ github.sha }}" "${ECR}/${ECR_IMAGE}:latest"
+      - run: docker push "${ECR}/${ECR_IMAGE}:latest"
+      - run: docker push "${ECR}/${ECR_IMAGE}:${{ github.sha }}"
+  deploy-dev:
+    needs: build-dev
+    runs-on:
+      - ubuntu-latest
+#      - self-hosted
+#      - tetra-k8s-ocpp
+#      - tetraev-runner
+    container:
+      image: alpine:3.18
+#    if: github.ref_type == 'tag'
+    environment: dev
+    timeout-minutes: 60
+    env:
+      SERVICE: ocpp
+      AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      ECR: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_DEFAULT_REGION }}.amazonaws.com
+      NODE_SELECTOR: OCPP
+      ECR_IMAGE: steve-dev
+      EKS_CLUSTER_NAME: voqa-dev
+      ENV_SDLC: dev
+      VALUES_YAML: ${{ secrets.VALUES_YAML }}
+    steps:
+      - uses: actions/checkout@v4.1.0
+      - run: apk add --no-cache curl jq python3 py3-pip
+      - run: curl -L0 https://dl.k8s.io/release/v1.22.15/bin/linux/amd64/kubectl -o /usr/local/bin/kubectl
+      - run: curl -L0 https://get.helm.sh/helm-v3.10.0-linux-amd64.tar.gz -o helm-v3.10.0-linux-amd64.tar.gz
+      - run: tar xzf helm-v3.10.0-linux-amd64.tar.gz
+      - run: mv linux-amd64/helm /usr/local/bin/helm
+      - run: pip install awscli
+      - run: aws eks update-kubeconfig --region "$AWS_DEFAULT_REGION" --name "$EKS_CLUSTER_NAME"
+      - run: echo "$VALUES_YAML" > ".helm/${SERVICE}/values.yaml"
+      - run: |
+          # to do replace latest by ${{ github.sha }}
+          helm -n "dev" upgrade --install --wait "${SERVICE}-dev" ".helm/${SERVICE}" \
+            --set-string ocppImage="${ECR}/${ECR_IMAGE}:${{ github.sha }}" \
+            --set-string awsDefaultRegion="${AWS_DEFAULT_REGION}" \
+            --set-string awsAccessKeyId="${AWS_ACCESS_KEY_ID}" \
+            --set-string awsSecretAccessKey="${AWS_SECRET_ACCESS_KEY}" \
+            --set-string snsAwsAccessKeyId="${AWS_ACCESS_KEY_ID}" \
+            --set-string snsAwsSecretAccessKey="${AWS_SECRET_ACCESS_KEY}" \
+            --set-string ocppNodeSelector="$NODE_SELECTOR"

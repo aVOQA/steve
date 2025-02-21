@@ -1,0 +1,4 @@
+# API specific variables
+ocppContainerPort: "8180"
+ocppServicePort: "8180"
+ocppNodePort: "30080"

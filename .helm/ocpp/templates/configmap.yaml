@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.chartName | default "tetra-ocpp" }}
+  namespace: {{ .Values.namespace }}
+data:
+  DB_HOST: {{ .Values.ocppDatabaseHost | quote }}
+  DB_PORT: {{ .Values.ocppDatabasePort | quote }}
+  DB_USERNAME: {{ .Values.ocppDatabaseUsername }}
+  DB_PASSWORD: {{ .Values.ocppDatabasePassword | quote }}
+  DB_DATABASE: {{ .Values.ocppDatabaseName }}
+  ADMIN_USERNAME: {{ .Values.ocppAdminUsername }}
+  ADMIN_PASSWORD: {{ .Values.ocppAdminPassword | quote }}
+  AWS_ACCESS_KEY_ID: {{ .Values.awsAccessKeyId }}
+  AWS_SECRET_ACCESS_KEY: {{ .Values.awsSecretAccessKey | quote }}
+  AWS_DEFAULT_REGION: {{ .Values.awsDefaultRegion | quote }}
+  SNS_AWS_ACCESS_KEY_ID: {{ .Values.snsAwsAccessKeyId }}
+  SNS_AWS_SECRET_ACCESS_KEY: {{ .Values.snsAwsSecretAccessKey | quote }}
+  SNS_TOPIC_CHARGING_SESSION: {{ .Values.snsTopicChargingSession | quote }}
+  SNS_TOPIC_DEVICE: {{ .Values.snsTopicDevice | quote }}
+  SNS_TOPIC_SOCKET_UPDATE: {{ .Values.snsTopicSocketUpdate | quote }}
+  SNS_TOPIC_CHARGERS_OFFLINE: {{ .Values.snsTopicChargersOffline | quote }}
+  SNS_TOPIC_PAYMENT_DETAILS: {{ .Values.snsTopicPaymentDetails | quote }}
+  STATION_LOGS_KEY: {{ .Values.stationLogsKey | quote }}
+  STATION_LOGS_SECRET: {{ .Values.stationLogsSecret | quote }}
+  STATION_LOGS_AWS_LAMBDA_URL: {{ .Values.stationLogsAwsLambdaUrl | quote }}
+  STATION_LOGS_QUANTITY: {{ .Values.stationLogsQuantity | quote }}
+  STATION_LOGS_CRON_INTERVAL: {{ .Values.stationLogsCronInterval | quote }}
+

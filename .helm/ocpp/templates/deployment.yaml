@@ -1,0 +1,146 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.chartName | default "tetra-ocpp" }}
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: {{ .Values.chartName | default "tetra-ocpp" }}
+    app.kubernetes.io/managed-by: "Helm"
+    meta.helm.sh/release-name: {{ .Values.chartName | default "tetra-ocpp" }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.chartName | default "tetra-ocpp" }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.chartName | default "tetra-ocpp" }}
+    spec:
+      nodeSelector:
+          pool: {{ .Values.ocppNodeSelector | default "OCPP" }}
+      containers:
+      - name: {{ .Values.chartName | default "tetra-ocpp" }}
+        image: {{ .Values.ocppImage }}
+        ports:
+        - containerPort: {{ .Values.ocppContainerPort }}
+        env:
+          - name: DB_HOST
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: DB_HOST
+          - name: DB_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: DB_PORT
+          - name: DB_USERNAME
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: DB_USERNAME
+          - name: DB_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: DB_PASSWORD
+          - name: DB_DATABASE
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: DB_DATABASE
+          - name: ADMIN_USERNAME
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: ADMIN_USERNAME
+          - name: ADMIN_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: ADMIN_PASSWORD
+          - name: AWS_DEFAULT_REGION
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: AWS_DEFAULT_REGION
+          - name: AWS_ACCESS_KEY_ID
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: AWS_ACCESS_KEY_ID
+          - name: AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: AWS_SECRET_ACCESS_KEY
+          - name: SNS_TOPIC_CHARGING_SESSION
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: SNS_TOPIC_CHARGING_SESSION
+          - name: SNS_TOPIC_DEVICE
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: SNS_TOPIC_DEVICE
+          - name: SNS_AWS_ACCESS_KEY_ID
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: SNS_AWS_ACCESS_KEY_ID
+          - name: SNS_AWS_SECRET_ACCESS_KEY
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: SNS_AWS_SECRET_ACCESS_KEY
+          - name: SNS_TOPIC_SOCKET_UPDATE
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: SNS_TOPIC_SOCKET_UPDATE
+          - name: SNS_TOPIC_CHARGERS_OFFLINE
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: SNS_TOPIC_CHARGERS_OFFLINE
+          - name: SNS_TOPIC_PAYMENT_DETAILS
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: SNS_TOPIC_PAYMENT_DETAILS
+          - name: STATION_LOGS_KEY
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: STATION_LOGS_KEY
+          - name: STATION_LOGS_SECRET
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: STATION_LOGS_SECRET
+          - name: STATION_LOGS_AWS_LAMBDA_URL
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: STATION_LOGS_AWS_LAMBDA_URL
+          - name: STATION_LOGS_QUANTITY
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: STATION_LOGS_QUANTITY
+          - name: STATION_LOGS_CRON_INTERVAL
+            valueFrom:
+              configMapKeyRef:
+                name: {{ .Values.chartName | default "tetra-ocpp" }}
+                key: STATION_LOGS_CRON_INTERVAL
+        volumeMounts:
+          - name: config
+            mountPath: "/config"
+            readOnly: true
+      volumes:
+      - name: config
+        configMap:
+          name: {{ .Values.chartName | default "tetra-ocpp" }}
+
