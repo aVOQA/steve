@@ -43,7 +43,7 @@ jobs:
       TESTED_CONFIG_PATH: "./src/main/resources/config/prod/main.properties"
     steps:
       - uses: actions/checkout@v4.1.0
-      - run: mkdir ./src/main/resources/config/prod
+      - run: mkdir -p ./src/main/resources/config/prod
       - run: cp -a $CURRENT_CONFIG_PATH $TESTED_CONFIG_PATH
       - run: sed -i "s|\$DB_HOST|mysql|g" $TESTED_CONFIG_PATH
       - run: sed -i "s|\$DB_PORT|3306|g" $TESTED_CONFIG_PATH
